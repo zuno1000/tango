@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#4f46e5">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>英単語1級</title>
+<style>
+:root{
+  --bg:#f4f5fb; --card:#ffffff; --ink:#1e2033; --sub:#767b94;
+  --accent:#4f46e5; --accent2:#7c3aed;
+  --ok:#16a34a; --ok-bg:#e8f8ee; --ng:#dc2626; --ng-bg:#fdeaea;
+  --line:#e5e7f0;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  background:var(--bg); color:var(--ink);
+  display:flex; flex-direction:column;
+  max-width:520px; margin:0 auto;
+  padding-top:env(safe-area-inset-top);
+  user-select:none; -webkit-user-select:none;
+}
+header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px 8px;
+}
+header .title{font-weight:800; font-size:16px; color:var(--accent)}
+#modeBtn{
+  border:1.5px solid var(--accent); background:#fff; color:var(--accent);
+  border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700;
+  cursor:pointer;
+}
+#modeBtn:active{background:var(--accent); color:#fff}
+.topstats{
+  display:flex; gap:8px; padding:0 16px 4px; font-size:12px; color:var(--sub);
+}
+.topstats b{color:var(--ink)}
+main{flex:1; overflow-y:auto; padding:8px 16px 120px}
+/* ---- quiz ---- */
+#promptCard{
+  background:var(--card); border-radius:20px; padding:26px 18px;
+  text-align:center; box-shadow:0 2px 12px rgba(80,70,229,.07);
+  margin-bottom:14px; position:relative;
+}
+#qBadge{
+  position:absolute; top:10px; left:12px; font-size:11px; font-weight:700;
+  color:var(--accent); background:#eef; border-radius:999px; padding:3px 9px;
+}
+#qCount{position:absolute; top:10px; right:12px; font-size:11px; color:var(--sub)}
+#promptWord{font-size:30px; font-weight:800; line-height:1.3; word-break:break-word}
+#promptWord.ja{font-size:20px; font-weight:700}
+#promptHint{font-size:12px; color:var(--sub); margin-top:8px}
+.choices{display:flex; flex-direction:column; gap:10px}
+.choice{
+  background:var(--card); border:1.5px solid var(--line); border-radius:16px;
+  min-height:58px; padding:12px 14px; font-size:16px; font-weight:600;
+  text-align:left; cursor:pointer; color:var(--ink);
+  display:flex; align-items:center; line-height:1.35; word-break:break-word;
+  transition:transform .05s;
+}
+.choice:active{transform:scale(.985)}
+.choice.correct{background:var(--ok-bg); border-color:var(--ok); color:var(--ok)}
+.choice.wrong{background:var(--ng-bg); border-color:var(--ng); color:var(--ng)}
+.choice.dim{opacity:.45}
+.choice:disabled{cursor:default}
+/* ---- result bar ---- */
+#resultBar{
+  position:fixed; left:0; right:0; bottom:0; margin:0 auto; max-width:520px;
+  background:var(--card); border-top-left-radius:20px; border-top-right-radius:20px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.10);
+  padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+  transform:translateY(110%); transition:transform .18s ease-out;
+}
+#resultBar.show{transform:translateY(0)}
+#resultHead{font-size:17px; font-weight:800; margin-bottom:6px}
+#resultHead.ok{color:var(--ok)} #resultHead.ng{color:var(--ng)}
+#resultAns{font-size:14px; line-height:1.5; margin-bottom:12px}
+#resultAns .w{font-weight:800; font-size:16px}
+#resultAns .pos{
+  font-size:11px; color:var(--sub); border:1px solid var(--line);
+  border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:2px;
+}
+#nextBtn{
+  width:100%; min-height:52px; border:none; border-radius:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff; font-size:16px; font-weight:800; cursor:pointer;
+}
+#nextBtn:active{opacity:.85}
+/* ---- tabs ---- */
+nav{
+  position:fixed; left:0; right:0; bottom:0; margin:0 auto; max-width:520px;
+  display:flex; background:var(--card); border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom); z-index:5;
+}
+nav button{
+  flex:1; border:none; background:none; padding:10px 0 8px;
+  font-size:12px; font-weight:700; color:var(--sub); cursor:pointer;
+}
+nav button.active{color:var(--accent)}
+nav .ico{display:block; font-size:20px; margin-bottom:2px}
+body.quiz-answered nav{display:none} /* 結果表示中はタブより次へを優先 */
+/* ---- stats ---- */
+.cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px}
+.scard{background:var(--card); border-radius:16px; padding:14px}
+.scard .num{font-size:24px; font-weight:800; color:var(--accent)}
+.scard .lbl{font-size:12px; color:var(--sub); margin-top:2px}
+h2{font-size:14px; margin:16px 2px 8px; color:var(--ink)}
+.hist{background:var(--card); border-radius:16px; padding:12px 14px}
+.hrow{display:flex; align-items:center; gap:8px; padding:5px 0; font-size:12px}
+.hrow .d{width:52px; color:var(--sub)}
+.hrow .bar{height:14px; border-radius:7px; background:linear-gradient(90deg,var(--accent),var(--accent2)); min-width:2px}
+.hrow .v{color:var(--sub); white-space:nowrap}
+.seg{display:flex; background:#e9eaf4; border-radius:12px; padding:3px; margin-bottom:10px}
+.seg button{
+  flex:1; border:none; background:none; border-radius:10px; padding:8px 0;
+  font-size:12px; font-weight:700; color:var(--sub); cursor:pointer;
+}
+.seg button.active{background:#fff; color:var(--accent); box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.wlist{background:var(--card); border-radius:16px; overflow:hidden}
+.wrow{display:flex; justify-content:space-between; gap:10px; padding:11px 14px; border-bottom:1px solid var(--line); font-size:13px}
+.wrow:last-child{border-bottom:none}
+.wrow .en{font-weight:700}
+.wrow .ja{color:var(--sub); font-size:12px; margin-top:2px}
+.wrow .cnt{white-space:nowrap; font-size:11px; color:var(--sub); text-align:right}
+.wrow .cnt .o{color:var(--ok)} .wrow .cnt .x{color:var(--ng)}
+.empty{padding:24px; text-align:center; color:var(--sub); font-size:13px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">英単語1級</div>
+  <button id="modeBtn"></button>
+</header>
+<div class="topstats">
+  <span>今日 <b id="tCount">0</b>問</span>
+  <span>正答率 <b id="tRate">-</b></span>
+  <span>覚えた <b id="tMaster">0</b>/<b id="tTotal">0</b></span>
+</div>
+
+<main id="quizView">
+  <div id="promptCard">
+    <span id="qBadge">新規</span>
+    <span id="qCount"></span>
+    <div id="promptWord"></div>
+    <div id="promptHint"></div>
+  </div>
+  <div class="choices" id="choices"></div>
+</main>
+
+<main id="statsView" class="hidden">
+  <div class="cards">
+    <div class="scard"><div class="num" id="sMaster">0</div><div class="lbl">覚えた単語</div></div>
+    <div class="scard"><div class="num" id="sSeen">0</div><div class="lbl">学習した単語</div></div>
+    <div class="scard"><div class="num" id="sToday">0</div><div class="lbl">今日の解答数</div></div>
+    <div class="scard"><div class="num" id="sStreak">0</div><div class="lbl">連続学習日数</div></div>
+  </div>
+  <h2>日別の記録（解答数・正解・新たに覚えた数）</h2>
+  <div class="hist" id="hist"></div>
+  <h2>単語一覧</h2>
+  <div class="seg">
+    <button data-l="wrong" class="active">間違えた</button>
+    <button data-l="correct">正解した</button>
+    <button data-l="master">覚えた</button>
+  </div>
+  <div class="wlist" id="wlist"></div>
+</main>
+
+<div id="resultBar">
+  <div id="resultHead"></div>
+  <div id="resultAns"></div>
+  <button id="nextBtn">次へ ▶</button>
+</div>
+
+<nav>
+  <button id="navQuiz" class="active"><span class="ico">✏️</span>学習</button>
+  <button id="navStats"><span class="ico">📊</span>記録</button>
+</nav>
+
+<script src="words.js"></script>
+<script>
+"use strict";
+/* ================= 状態管理 ================= */
+const KEY="tango1kyu_v1";
+const POS_LABEL={v:"動詞",n:"名詞",adj:"形容詞",adv:"副詞"};
+// 忘却曲線に沿った復習間隔（box 0〜7）
+const INTERVALS=[60e3, 10*60e3, 864e5, 3*864e5, 7*864e5, 16*864e5, 35*864e5, 90*864e5];
+const MASTER_BOX=4; // このbox以上で「覚えた」
+
+let S;
+try{ S=JSON.parse(localStorage.getItem(KEY)) }catch(e){ S=null }
+if(!S || typeof S!=="object") S={v:1, mode:"e2j", words:{}, days:{}};
+S.words=S.words||{}; S.days=S.days||{}; S.mode=S.mode||"e2j";
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)) }catch(e){} }
+
+function todayKey(){
+  const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dayRec(){ const k=todayKey(); if(!S.days[k]) S.days[k]={a:0,c:0,m:0}; return S.days[k]; }
+
+/* word state: [box, due, correct, wrong, masteredFlag] */
+function wst(en){ return S.words[en]; }
+
+const byEn={}; WORDS.forEach(w=>byEn[w.en]=w);
+
+/* ================= 出題選択（忘却曲線） ================= */
+let lastEn=null, cur=null, answered=false;
+
+function pickWord(){
+  const now=Date.now(); const due=[], unseen=[];
+  for(const w of WORDS){
+    const st=S.words[w.en];
+    if(!st){ unseen.push(w); }
+    else if(st[1]<=now){ due.push(w); }
+  }
+  const notLast=a=>a.length>1? a.filter(w=>w.en!==lastEn) : a;
+  const d=notLast(due), u=notLast(unseen);
+  if(d.length && (u.length===0 || Math.random()<0.8)){
+    d.sort((a,b)=>S.words[a.en][1]-S.words[b.en][1]); // 期限切れが古い順
+    const pool=d.slice(0, Math.min(8,d.length));
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+  if(u.length) return u[Math.floor(Math.random()*u.length)];
+  // 期限前だが先取り復習（覚えた度が低い順・期限が近い順）
+  const seen=WORDS.filter(w=>S.words[w.en] && w.en!==lastEn);
+  seen.sort((a,b)=>(S.words[a.en][0]-S.words[b.en][0]) || (S.words[a.en][1]-S.words[b.en][1]));
+  const pool=seen.slice(0, Math.min(10,seen.length));
+  return pool[Math.floor(Math.random()*pool.length)] || WORDS[0];
+}
+
+/* 意味が重なる語を選択肢から除外（例:「なだめる」系の同義語同士） */
+function jaTokens(s){ return s.split(/[、。・（）()／\/\s～~]+/).filter(t=>t.length>=2); }
+function overlaps(a,b){
+  const ta=jaTokens(a.ja), tb=new Set(jaTokens(b.ja));
+  return ta.some(t=>tb.has(t));
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function buildChoices(word){
+  const pool=WORDS.filter(c=>c.pos===word.pos && c.en!==word.en && !overlaps(c,word));
+  shuffle(pool);
+  return shuffle([word, ...pool.slice(0,3)]);
+}
+
+/* ================= クイズ描画 ================= */
+const $=id=>document.getElementById(id);
+
+function renderQuestion(){
+  answered=false;
+  document.body.classList.remove("quiz-answered");
+  $("resultBar").classList.remove("show");
+  const w=cur.word, e2j=S.mode==="e2j";
+  const st=wst(w.en);
+  $("qBadge").textContent = !st? "新規" : (st[0]>=MASTER_BOX? "覚えた・復習" : "復習");
+  $("qBadge").style.background = !st? "#eef" : (st[0]>=MASTER_BOX? "#e8f8ee" : "#fdf3e3");
+  $("qBadge").style.color = !st? "var(--accent)" : (st[0]>=MASTER_BOX? "var(--ok)" : "#b45309");
+  const d=dayRec(); $("qCount").textContent="今日 "+d.a+"問";
+  const pw=$("promptWord");
+  pw.textContent = e2j? w.en : w.ja;
+  pw.className = e2j? "" : "ja";
+  $("promptHint").textContent = e2j? "この単語の意味は？" : "この意味の英単語は？";
+  const box=$("choices"); box.innerHTML="";
+  cur.choices.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="choice";
+    b.textContent = e2j? c.ja : c.en;
+    b.onclick=()=>answer(c,b);
+    box.appendChild(b);
+  });
+  updateTop();
+}
+
+function newQuestion(){
+  const w=pickWord();
+  cur={word:w, choices:buildChoices(w)};
+  renderQuestion();
+}
+
+function answer(chosen, btn){
+  if(answered) return;
+  answered=true;
+  const w=cur.word, ok=chosen.en===w.en, e2j=S.mode==="e2j";
+  // ボタンの色付け
+  document.querySelectorAll(".choice").forEach(b=>{
+    b.disabled=true;
+    const label=e2j? b.textContent : b.textContent;
+    const isCorrect = label === (e2j? w.ja : w.en);
+    if(isCorrect) b.classList.add("correct");
+    else if(b===btn) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  // SRS更新
+  const now=Date.now();
+  let st=S.words[w.en];
+  if(!st) st=S.words[w.en]=[0,0,0,0,0];
+  if(ok) st[0]=Math.min(st[0]+1, INTERVALS.length-1); else st[0]=0;
+  st[1]=now+INTERVALS[st[0]];
+  if(ok) st[2]++; else st[3]++;
+  const d=dayRec(); d.a++; if(ok) d.c++;
+  if(ok && st[0]>=MASTER_BOX && !st[4]){ st[4]=1; d.m++; }
+  save();
+  lastEn=w.en;
+  // 結果表示
+  const head=$("resultHead");
+  head.textContent = ok? "⭕ 正解！" : "❌ 不正解";
+  head.className = ok? "ok" : "ng";
+  $("resultAns").innerHTML =
+    '<span class="w">'+esc(w.en)+'</span><span class="pos">'+POS_LABEL[w.pos]+'</span><br>'+esc(w.ja);
+  $("resultBar").classList.add("show");
+  document.body.classList.add("quiz-answered");
+  updateTop();
+}
+
+function esc(s){ return s.replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+$("nextBtn").onclick=()=>newQuestion();
+
+/* モード切替 */
+function renderModeBtn(){ $("modeBtn").textContent = S.mode==="e2j"? "EN → 日本語" : "日本語 → EN"; }
+$("modeBtn").onclick=()=>{
+  S.mode = S.mode==="e2j"? "j2e" : "e2j"; save(); renderModeBtn();
+  if(!answered && cur) renderQuestion(); // 未解答なら同じ単語で出し直し
+};
+
+/* ================= ヘッダー統計 ================= */
+function masteredCount(){ let n=0; for(const en in S.words){ if(S.words[en][0]>=MASTER_BOX) n++; } return n; }
+function updateTop(){
+  const d=S.days[todayKey()]||{a:0,c:0,m:0};
+  $("tCount").textContent=d.a;
+  $("tRate").textContent = d.a? Math.round(100*d.c/d.a)+"%" : "-";
+  $("tMaster").textContent=masteredCount();
+  $("tTotal").textContent=WORDS.length;
+}
+
+/* ================= 記録画面 ================= */
+let listMode="wrong";
+function renderStats(){
+  $("sMaster").textContent=masteredCount();
+  $("sSeen").textContent=Object.keys(S.words).length;
+  const d=S.days[todayKey()]||{a:0,c:0,m:0};
+  $("sToday").textContent=d.a;
+  // 連続日数
+  let streak=0; const t=new Date();
+  for(let i=0;;i++){
+    const dt=new Date(t.getFullYear(),t.getMonth(),t.getDate()-i);
+    const k=dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+    const r=S.days[k];
+    if(r && r.a>0) streak++;
+    else if(i===0) continue; // 今日まだ未学習でも昨日から数える
+    else break;
+  }
+  $("sStreak").textContent=streak;
+  // 日別履歴（直近14日）
+  const hist=$("hist"); hist.innerHTML="";
+  let max=1; const rows=[];
+  for(let i=13;i>=0;i--){
+    const dt=new Date(t.getFullYear(),t.getMonth(),t.getDate()-i);
+    const k=dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+    const r=S.days[k]||{a:0,c:0,m:0};
+    max=Math.max(max,r.a);
+    rows.push({label:(dt.getMonth()+1)+"/"+dt.getDate(), r});
+  }
+  rows.forEach(({label,r})=>{
+    const div=document.createElement("div"); div.className="hrow";
+    div.innerHTML='<span class="d">'+label+'</span>'+
+      '<span class="bar" style="width:'+Math.round(100*r.a/max)+'%"></span>'+
+      '<span class="v">'+r.a+'問 ✓'+r.c+' ⭐'+r.m+'</span>';
+    hist.appendChild(div);
+  });
+  renderList();
+}
+function renderList(){
+  const box=$("wlist"); box.innerHTML="";
+  let items=[];
+  for(const en in S.words){
+    const st=S.words[en], w=byEn[en]; if(!w) continue;
+    if(listMode==="wrong" && st[3]>0) items.push({w,st,k:st[3]});
+    else if(listMode==="correct" && st[2]>0) items.push({w,st,k:st[2]});
+    else if(listMode==="master" && st[0]>=MASTER_BOX) items.push({w,st,k:st[0]});
+  }
+  items.sort((a,b)=> b.k-a.k || a.w.en.localeCompare(b.w.en));
+  if(!items.length){
+    box.innerHTML='<div class="empty">まだ記録がありません</div>'; return;
+  }
+  const frag=document.createDocumentFragment();
+  items.forEach(({w,st})=>{
+    const div=document.createElement("div"); div.className="wrow";
+    div.innerHTML='<div><div class="en">'+esc(w.en)+'</div><div class="ja">'+esc(w.ja)+'</div></div>'+
+      '<div class="cnt"><span class="o">○'+st[2]+'</span> <span class="x">✕'+st[3]+'</span></div>';
+    frag.appendChild(div);
+  });
+  box.appendChild(frag);
+}
+document.querySelectorAll(".seg button").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll(".seg button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); listMode=b.dataset.l; renderList();
+  };
+});
+
+/* ================= タブ切替 ================= */
+$("navQuiz").onclick=()=>{
+  $("quizView").classList.remove("hidden"); $("statsView").classList.add("hidden");
+  $("navQuiz").classList.add("active"); $("navStats").classList.remove("active");
+};
+$("navStats").onclick=()=>{
+  $("statsView").classList.remove("hidden"); $("quizView").classList.add("hidden");
+  $("navStats").classList.add("active"); $("navQuiz").classList.remove("active");
+  renderStats();
+};
+
+/* ================= 起動 ================= */
+renderModeBtn();
+newQuestion(); // 開いた瞬間に出題
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
