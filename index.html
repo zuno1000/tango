@@ -106,9 +106,9 @@ main{flex:1; min-height:0}
   font-size:12px; color:var(--sub); border:1px solid var(--line);
   border-radius:8px; padding:2px 10px;
 }
-/* 次へ: パネルの右半分（画面中央〜右端）を占める大ボタン */
+/* 次へ: パネル幅の約2/3（正誤・品詞表示のすぐ右〜右端）を占める大ボタン */
 #nextBtn{
-  flex:0 0 50%; align-self:stretch;
+  flex:0 0 66%; align-self:stretch;
   border:none; border-radius:14px;
   background:linear-gradient(135deg,var(--accent),var(--accent2));
   color:#fff; font-size:18px; font-weight:800; cursor:pointer;
@@ -120,11 +120,31 @@ main{flex:1; min-height:0}
 .scard .num{font-size:24px; font-weight:800; color:var(--accent)}
 .scard .lbl{font-size:12px; color:var(--sub); margin-top:2px}
 h2{font-size:14px; margin:16px 2px 8px; color:var(--ink)}
-.hist{background:var(--card); border-radius:16px; padding:12px 14px}
-.hrow{display:flex; align-items:center; gap:8px; padding:5px 0; font-size:12px}
-.hrow .d{width:52px; color:var(--sub)}
-.hrow .bar{height:14px; border-radius:7px; background:linear-gradient(90deg,var(--accent),var(--accent2)); min-width:2px}
-.hrow .v{color:var(--sub); white-space:nowrap}
+/* ---- 学習カレンダー ---- */
+.cal{background:var(--card); border-radius:16px; padding:12px}
+.cal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
+.cal-head button{
+  border:none; background:#eef; color:var(--accent); border-radius:8px;
+  padding:4px 14px; font-weight:700; font-size:13px; cursor:pointer;
+}
+#calTitle{font-weight:800; font-size:14px}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+.cal-dow{text-align:center; font-size:10px; color:var(--sub); padding:2px 0}
+.cal-cell{
+  aspect-ratio:1; border-radius:8px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border:1.5px solid transparent; min-height:0;
+}
+.cal-cell .d{font-size:11px; font-weight:700}
+.cal-cell .c{font-size:9px; opacity:.85}
+.cal-cell.lv0{background:#f0f1f8; color:var(--sub)}
+.cal-cell.lv1{background:#dfe2fb; color:var(--ink)}
+.cal-cell.lv2{background:#bcc2f5; color:var(--ink)}
+.cal-cell.lv3{background:#8d95ec; color:#fff}
+.cal-cell.lv4{background:#5b63e0; color:#fff}
+.cal-cell.sel{border-color:var(--accent)}
+.cal-cell.future{opacity:.35; cursor:default}
+.cal-detail{margin-top:10px; font-size:12px; background:#f4f5fb; border-radius:10px; padding:8px 12px}
 .seg{display:flex; background:#e9eaf4; border-radius:12px; padding:3px; margin-bottom:10px}
 .seg button{
   flex:1; border:none; background:none; border-radius:10px; padding:8px 0;
@@ -184,8 +204,16 @@ h2{font-size:14px; margin:16px 2px 8px; color:var(--ink)}
     <div class="scard"><div class="num" id="sToday">0</div><div class="lbl">今日の解答数</div></div>
     <div class="scard"><div class="num" id="sStreak">0</div><div class="lbl">連続学習日数</div></div>
   </div>
-  <h2>日別の記録（解答数・正解・新たに覚えた数）</h2>
-  <div class="hist" id="hist"></div>
+  <h2>学習カレンダー（マスの数字は解答数、色が濃いほど多く学習）</h2>
+  <div class="cal">
+    <div class="cal-head">
+      <button id="calPrev">◀</button>
+      <span id="calTitle"></span>
+      <button id="calNext">▶</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-detail" id="calDetail"></div>
+  </div>
   <h2>単語一覧</h2>
   <div class="seg">
     <button data-l="wrong" class="active">間違えた</button>
@@ -373,25 +401,60 @@ function renderStats(){
     else break;
   }
   $("sStreak").textContent=streak;
-  // 日別履歴（直近14日）
-  const hist=$("hist"); hist.innerHTML="";
-  let max=1; const rows=[];
-  for(let i=13;i>=0;i--){
-    const dt=new Date(t.getFullYear(),t.getMonth(),t.getDate()-i);
-    const k=dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
-    const r=S.days[k]||{a:0,c:0,m:0};
-    max=Math.max(max,r.a);
-    rows.push({label:(dt.getMonth()+1)+"/"+dt.getDate(), r});
-  }
-  rows.forEach(({label,r})=>{
-    const div=document.createElement("div"); div.className="hrow";
-    div.innerHTML='<span class="d">'+label+'</span>'+
-      '<span class="bar" style="width:'+Math.round(100*r.a/max)+'%"></span>'+
-      '<span class="v">'+r.a+'問 ✓'+r.c+' ⭐'+r.m+'</span>';
-    hist.appendChild(div);
-  });
+  // カレンダーは記録画面を開くたびに当月へリセット
+  calYM={y:t.getFullYear(), m:t.getMonth()}; calSel=null;
+  renderCal();
   renderList();
 }
+
+/* ================= 学習カレンダー ================= */
+let calYM=null, calSel=null;
+function ymdKey(y,m,d){ return y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"); }
+function renderCal(){
+  const {y,m}=calYM;
+  const now=new Date();
+  const curYM=now.getFullYear()*12+now.getMonth(), showYM=y*12+m;
+  $("calTitle").textContent=y+"年"+(m+1)+"月";
+  $("calNext").style.opacity = showYM>=curYM? "0.35" : "1";
+  const days=new Date(y,m+1,0).getDate();
+  const startDow=new Date(y,m,1).getDay();
+  let max=1;
+  for(let d=1;d<=days;d++){ const r=S.days[ymdKey(y,m,d)]; if(r&&r.a>max) max=r.a; }
+  const grid=$("calGrid"); grid.innerHTML="";
+  ["日","月","火","水","木","金","土"].forEach(w=>{
+    const e=document.createElement("div"); e.className="cal-dow"; e.textContent=w; grid.appendChild(e);
+  });
+  for(let i=0;i<startDow;i++) grid.appendChild(document.createElement("div"));
+  if(calSel===null && showYM===curYM) calSel=now.getDate();
+  for(let d=1;d<=days;d++){
+    const r=S.days[ymdKey(y,m,d)];
+    const future = showYM===curYM && d>now.getDate();
+    let lv=0;
+    if(r&&r.a>0) lv=Math.max(1, Math.ceil(4*r.a/max));
+    const cell=document.createElement("div");
+    cell.className="cal-cell lv"+lv+(d===calSel?" sel":"")+(future?" future":"");
+    cell.innerHTML='<span class="d">'+d+'</span>'+(r&&r.a? '<span class="c">'+r.a+'</span>':'');
+    if(!future) cell.onclick=()=>{ calSel=d; renderCal(); };
+    grid.appendChild(cell);
+  }
+  const det=$("calDetail");
+  if(calSel!==null){
+    const r=S.days[ymdKey(y,m,calSel)];
+    det.textContent=(m+1)+"月"+calSel+"日： "+(r&&r.a? r.a+"問解答 ／ 正解 "+r.c+" ／ 新たに覚えた単語 "+r.m : "記録なし");
+  } else {
+    det.textContent="日付をタップすると詳細を表示します";
+  }
+}
+$("calPrev").onclick=()=>{
+  calYM.m--; if(calYM.m<0){ calYM.m=11; calYM.y--; }
+  calSel=null; renderCal();
+};
+$("calNext").onclick=()=>{
+  const now=new Date();
+  if(calYM.y*12+calYM.m >= now.getFullYear()*12+now.getMonth()) return; // 未来の月へは進めない
+  calYM.m++; if(calYM.m>11){ calYM.m=0; calYM.y++; }
+  calSel=null; renderCal();
+};
 function renderList(){
   const box=$("wlist"); box.innerHTML="";
   let items=[];
