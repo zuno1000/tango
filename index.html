@@ -99,19 +99,19 @@ main{flex:1; min-height:0}
 #resultBar.show{visibility:visible; animation:pop .15s ease-out}
 @keyframes pop{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
 #resultInfo{flex:1; min-width:0}
-#resultHead{font-size:15px; font-weight:800; margin-bottom:3px}
+#resultHead{font-size:16px; font-weight:800; margin-bottom:5px}
 #resultHead.ok{color:var(--ok)} #resultHead.ng{color:var(--ng)}
 #resultAns{font-size:12px; line-height:1.4; overflow:hidden}
-#resultAns .w{font-weight:800; font-size:15px}
 #resultAns .pos{
-  font-size:10px; color:var(--sub); border:1px solid var(--line);
-  border-radius:6px; padding:1px 5px; margin-left:5px; vertical-align:1px;
+  font-size:12px; color:var(--sub); border:1px solid var(--line);
+  border-radius:8px; padding:2px 10px;
 }
+/* 次へ: パネルの右半分（画面中央〜右端）を占める大ボタン */
 #nextBtn{
-  flex:0 0 auto; width:104px; align-self:stretch;
+  flex:0 0 50%; align-self:stretch;
   border:none; border-radius:14px;
   background:linear-gradient(135deg,var(--accent),var(--accent2));
-  color:#fff; font-size:16px; font-weight:800; cursor:pointer;
+  color:#fff; font-size:18px; font-weight:800; cursor:pointer;
 }
 #nextBtn:active{opacity:.85}
 /* ---- stats ---- */
@@ -327,8 +327,8 @@ function answer(chosen, btn){
   const head=$("resultHead");
   head.textContent = ok? "⭕ 正解！" : "❌ 不正解";
   head.className = ok? "ok" : "ng";
-  $("resultAns").innerHTML =
-    '<span class="w">'+esc(w.en)+'</span><span class="pos">'+POS_LABEL[w.pos]+'</span><br>'+esc(w.ja);
+  // 単語と和訳は画面上部・選択肢で確認できるため、ここでは品詞のみ表示
+  $("resultAns").innerHTML = '<span class="pos">'+POS_LABEL[w.pos]+'</span>';
   $("resultBar").classList.add("show");
   document.body.classList.add("quiz-answered");
   updateTop();
@@ -438,6 +438,7 @@ newQuestion(); // 開いた瞬間に出題
 if("serviceWorker" in navigator && location.protocol==="https:"){
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
+/* build: layout-v3 */
 </script>
 </body>
 </html>
